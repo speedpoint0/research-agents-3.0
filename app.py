@@ -1,7 +1,7 @@
 import os
 import requests
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain import PromptTemplate
+from langchain.prompts import PromptTemplate
 from langchain.chains.summarize import load_summarize_chain
 from bs4 import BeautifulSoup
 from langchain.chat_models import ChatOpenAI
@@ -16,28 +16,22 @@ import autogen
 load_dotenv()
 brwoserless_api_key = os.getenv("BROWSERLESS_API_KEY")
 serper_api_key = os.getenv("SERP_API_KEY")
-airtable_api_key = os.getenv("AIRTABLE_API_KEY")
 config_list = config_list_from_json("OAI_CONFIG_LIST")
 
 
 # ------------------ Create functions ------------------ #
 
-# Function for google search
 def google_search(search_keyword):    
-    url = "https://google.serper.dev/search"
+    url = "https://serpapi.com/search.json"
 
-    payload = json.dumps({
-        "q": search_keyword
-    })
-
-    headers = {
-        'X-API-KEY': serper_api_key,
-        'Content-Type': 'application/json'
+    params = {
+        "q": search_keyword,
+        "engine": "google",
+        "api_key": serper_api_key
     }
 
-    response = requests.request("POST", url, headers=headers, data=payload)
-    print("RESPONSE:", response.text)
-    return response.text
+    response = requests.get(url, params=params)
+    return response.json()  # Return JSON object for easier handling
 
 # Function for scraping
 def summary(objective, content):
@@ -91,7 +85,6 @@ def web_scraping(objective: str, url: str):
     if response.status_code == 200:
         soup = BeautifulSoup(response.content, "html.parser")
         text = soup.get_text()
-        print("CONTENTTTTTT:", text)
         if len(text) > 10000:
             output = summary(objective,text)
             return output
@@ -99,43 +92,6 @@ def web_scraping(objective: str, url: str):
             return text
     else:
         print(f"HTTP request failed with status code {response.status_code}")        
-
-
-# Function for get airtable records
-def get_airtable_records(base_id, table_id):
-    url = f"https://api.airtable.com/v0/{base_id}/{table_id}"
-
-    headers = {
-        'Authorization': f'Bearer {airtable_api_key}',
-    }
-
-    response = requests.request("GET", url, headers=headers)
-    data = response.json()
-    print(data)
-    return data
-
-
-# Function for update airtable records
-
-def update_single_airtable_record(base_id, table_id, id, fields):
-    url = f"https://api.airtable.com/v0/{base_id}/{table_id}"
-
-    headers = {
-        'Authorization': f'Bearer {airtable_api_key}',
-        "Content-Type": "application/json"
-    }
-
-    data = {
-        "records": [{
-            "id": id,
-            "fields": fields
-        }]
-    }
-
-    response = requests.patch(url, headers=headers, data=json.dumps(data))
-    data = response.json()
-    return data
-
 
 # ------------------ Create agent ------------------ #
 
@@ -151,7 +107,7 @@ researcher = GPTAssistantAgent(
     name = "researcher",
     llm_config = {
         "config_list": config_list,
-        "assistant_id": "asst_qyvioid5My8K3SdFClaEnwmB"
+        "assistant_id": "asst_VPSlMdfXr8y4wNsKeG5XcM3C"
     }
 )
 
@@ -167,7 +123,7 @@ research_manager = GPTAssistantAgent(
     name="research_manager",
     llm_config = {
         "config_list": config_list,
-        "assistant_id": "asst_C1Ta5XmmEcYD6vnOSVflnwG9"
+        "assistant_id": "asst_K8r0uglGRaKECjbBcffWQuMA"
     }
 )
 
@@ -177,25 +133,22 @@ director = GPTAssistantAgent(
     name = "director",
     llm_config = {
         "config_list": config_list,
-        "assistant_id": "asst_zVBJGch5mOyCYl9H1J3L9Ime",
-    }
-)
-
-director.register_function(
-    function_map={
-        "get_airtable_records": get_airtable_records,
-        "update_single_airtable_record": update_single_airtable_record
+        "assistant_id": "asst_MDacbfAn4lgHDBaKF6QyGudg",
     }
 )
 
 
-# Create group chat
-groupchat = autogen.GroupChat(agents=[user_proxy, researcher, research_manager, director], messages=[], max_round=15)
-group_chat_manager = autogen.GroupChatManager(groupchat=groupchat, llm_config={"config_list": config_list})
 
 
-# ------------------ start conversation ------------------ #
-message = """
-Research the funding stage/amount & pricing for each company in the list: https://airtable.com/appj0J4gFpvLrQWjI/tblF4OmG6oLjYtgZl/viwmFx2ttAVrJm0E3?blocks=hide
-"""
-user_proxy.initiate_chat(group_chat_manager, message=message)
+
+if __name__ == "__main__":   
+#    Create group chat
+   groupchat = autogen.GroupChat(agents=[user_proxy, researcher, research_manager, director], messages=[], max_round=15)
+   group_chat_manager = autogen.GroupChatManager(groupchat=groupchat, llm_config={"config_list": config_list})
+
+
+    # ------------------ start conversation ------------------ #
+   message = """
+   is a lead generation service that uses auto generated reports for SEO marketing agencies a good business?
+    """
+   user_proxy.initiate_chat(group_chat_manager, message=message)

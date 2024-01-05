@@ -1,0 +1,6 @@
+requests
+langchain
+beautifulsoup4
+python-dotenv
+autogen
+pyautogen==0.2.0b5
